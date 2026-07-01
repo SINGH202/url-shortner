@@ -1,3 +1,15 @@
 node_modules/
 .env
+.env*.local
 .claude/
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# Debug logs
+npm-debug.log*

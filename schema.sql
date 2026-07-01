@@ -22,3 +22,24 @@ CREATE TABLE IF NOT EXISTS urls (
 -- An index makes "find the row WHERE code = ?" fast even with millions of rows.
 -- (The UNIQUE constraint above already creates one, but being explicit is good learning.)
 CREATE INDEX IF NOT EXISTS idx_urls_code ON urls (code);
+
+
+-- resolve_and_click(): the heart of the redirect, done in ONE atomic database call.
+--
+-- Why a database function instead of "SELECT, then UPDATE" from JavaScript?
+-- If two people click the same link at the same instant, a read-then-write in
+-- app code can lose an increment (both read clicks=5, both write 6). Doing the
+-- UPDATE ... RETURNING inside the database makes the increment atomic — no lost
+-- clicks, and only a single network round-trip from our serverless function.
+--
+-- It returns the long_url so the same call both records the click AND tells us
+-- where to redirect. If the code doesn't exist, it returns nothing (NULL).
+CREATE OR REPLACE FUNCTION resolve_and_click(p_code TEXT)
+RETURNS TEXT
+LANGUAGE sql
+AS $$
+    UPDATE urls
+       SET clicks = clicks + 1
+     WHERE code = p_code
+ RETURNING long_url;
+$$;

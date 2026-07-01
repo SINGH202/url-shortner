@@ -1,8 +1,8 @@
 // db.js — PostgreSQL connection pool + schema bootstrap.
 
-const fs = require("fs");
-const path = require("path");
-const { Pool } = require("pg");
+import fs from "fs";
+import path from "path";
+import { Pool } from "pg";
 
 // Two connection styles:
 //  - LOCAL: individual PG* variables (host, port, database).

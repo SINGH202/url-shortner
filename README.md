@@ -1,92 +1,111 @@
-# 🔗 URL Shortener
+# 🔗 Snip — a URL shortener
 
-A fast, production-style URL shortener built with **Node.js**, **Express**, and **PostgreSQL** — turns long links into short, shareable codes and tracks click counts.
+Turn long, ugly links into short, shareable ones. A full-stack URL shortener
+built as a single Next.js app and deployed to Vercel.
 
-![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=node.js&logoColor=white)
-![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14-4169E1?logo=postgresql&logoColor=white)
-![License](https://img.shields.io/badge/license-ISC-blue)
+**Live demo:** _add your Vercel URL here after deploying_
 
-> **🌐 Live demo:** _add your Render URL here after deploying_ →  `https://<your-app>.onrender.com`
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase&logoColor=white)
 
-<!-- Tip: record a short GIF of shortening + redirecting and drop it here.
-     A picture of it working is the single best thing on a portfolio repo. -->
-<!-- ![demo](docs/demo.gif) -->
+---
 
 ## ✨ Features
 
-- **Shorten any URL** into a 6-character base62 code (62⁶ ≈ 56.8 billion combinations).
-- **Cryptographically secure codes** via `crypto.randomBytes` — unguessable, no bias.
-- **302 redirects** so every click routes through the server (enabling analytics).
-- **Click tracking** with an atomic `UPDATE ... RETURNING` (no race conditions).
-- **SQL-injection safe** — all queries are parameterized.
-- **Input validation** — rejects anything that isn't a valid http(s) URL.
-- **Deploy-ready** — reads config from environment variables and self-initializes its schema.
+- **Shorten any http(s) URL** into a 7-character code (base62, ~3.5 trillion combos).
+- **Instant redirects** from `yoursite.com/<code>` to the original link.
+- **Click tracking** — every visit is counted atomically in the database.
+- **Secure, collision-safe codes** via the Web Crypto API + a `UNIQUE` DB constraint.
+- **Clean UI** with copy-to-clipboard, loading and error states.
+- One codebase, one deploy — frontend and backend together on Vercel.
 
 ## 🧱 Tech stack & architecture
 
+| Layer     | Choice                      | Why                                  |
+| --------- | --------------------------- | ------------------------------------ |
+| Framework | **Next.js 16 (App Router)** | Frontend + backend in one project    |
+| Language  | **TypeScript**              | Type safety across the stack         |
+| Styling   | **Tailwind CSS v4**         | Fast, consistent UI                  |
+| Database  | **Supabase (Postgres)**     | Serverless-friendly managed Postgres |
+| Hosting   | **Vercel**                  | Zero-config Next.js deploys          |
+
 ```
-Client ──POST /shorten {url}──►  Express  ──► generate base62 code ──► INSERT ──► PostgreSQL
-Client ──GET  /:code──────────►  Express  ──► UPDATE clicks +1, fetch url ──► 302 redirect
+src/
+├─ app/
+│  ├─ page.tsx            # Homepage (Server Component) — the shell
+│  ├─ ShortenForm.tsx     # Client Component — the interactive form
+│  ├─ api/shorten/route.ts# POST: validate → generate code → store
+│  └─ [code]/route.ts     # GET: look up code → count click → redirect
+└─ lib/
+   ├─ supabase.ts         # Lazy, server-only Supabase client
+   └─ utils.ts            # generateCode() + isValidUrl()
+schema.sql                # Table + atomic resolve_and_click() function
+legacy/                   # The original Express prototype (kept for history)
 ```
 
-| File | Responsibility |
-|------|----------------|
-| `server.js`  | Express app: routes, code generation, validation |
-| `db.js`      | Postgres connection pool + schema bootstrap |
-| `schema.sql` | `urls` table definition |
+## 🚀 Run it locally
 
-## 🚀 Getting started (local)
+**Prerequisites:** Node 18+ and a free [Supabase](https://supabase.com) account.
 
-**Prerequisites:** Node 18+, PostgreSQL running locally.
+1. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+2. **Create the database.** In your Supabase project, open **SQL Editor**, paste
+   the contents of [`schema.sql`](./schema.sql), and run it. This creates the
+   `urls` table and the `resolve_and_click()` function.
+
+3. **Add your credentials.** Copy the example env file and fill it in:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Get both values from **Supabase → Project Settings**:
+   - `NEXT_PUBLIC_SUPABASE_URL` — Data API → Project URL
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — API Keys → `service_role` (keep secret!)
+
+4. **Start the dev server**
+   ```bash
+   npm run dev
+   ```
+   Open <http://localhost:3000>, paste a long URL, and hit **Shorten**.
+
+## 🧪 Try the API directly
 
 ```bash
-# 1. Clone and install
-git clone https://github.com/<you>/url-shortner.git
-cd url-shortner
-npm install
-
-# 2. Configure environment
-cp .env.example .env        # then edit if your Postgres differs
-
-# 3. Create the database (the table is created automatically on first run)
-createdb urlshortener
-
-# 4. Start
-npm start                   # -> http://localhost:3000
-```
-
-## 📡 API
-
-| Method | Route          | Body                | Description                          |
-|--------|----------------|---------------------|--------------------------------------|
-| `POST` | `/shorten`     | `{ "url": "..." }`  | Create a short link                  |
-| `GET`  | `/:code`       | –                   | Redirect (302) to the original URL   |
-| `GET`  | `/health`      | –                   | Health check (`{ "status": "ok" }`)  |
-
-**Example**
-
-```bash
-curl -X POST http://localhost:3000/shorten \
+# Shorten a URL
+curl -X POST http://localhost:3000/api/shorten \
   -H "Content-Type: application/json" \
   -d '{"url":"https://developer.mozilla.org"}'
-# { "shortUrl": "http://localhost:3000/aB3xY9", "code": "aB3xY9", ... }
+# → { "code": "aB3xK9q", "shortUrl": "http://localhost:3000/aB3xK9q" }
+
+# Follow the short link (‑L follows the redirect)
+curl -L http://localhost:3000/aB3xK9q
 ```
 
-## ☁️ Deployment
+Watch the click counter rise:
 
-Deployed on [Render](https://render.com) with a managed PostgreSQL instance.
-The app reads `DATABASE_URL`, `BASE_URL`, and `PORT` from the environment and
-creates its table automatically on boot. See `DEPLOY.md` for step-by-step instructions.
+```sql
+select code, clicks, long_url from urls order by created_at desc;
+```
 
-## 🛣️ Roadmap / possible extensions
+## ☁️ Deploy
 
-- [ ] Web UI with a form and copy-to-clipboard
-- [ ] Custom aliases (`/my-link`)
-- [ ] Link expiry dates
-- [ ] `GET /:code/stats` analytics endpoint
-- [ ] Rate limiting
+See **[DEPLOY.md](./DEPLOY.md)** for step-by-step Vercel + Supabase instructions.
 
-## 📄 License
+## 📚 What I learned building this
 
-ISC
+- The **Server vs. Client Component** boundary in the Next.js App Router.
+- Writing backend **Route Handlers** with the web `Request`/`Response` API.
+- Next.js 16's async `params`/`searchParams` breaking change.
+- Why **302 (not 301)** redirects keep click analytics accurate.
+- Doing an **atomic** read-increment-return in a single SQL function to avoid race conditions.
+- Keeping secrets server-side and initializing clients **lazily** for serverless.
+
+> Started life as a plain Express + local Postgres app (see `legacy/`) and was
+> rebuilt into this Next.js + Supabase stack — the git history shows the journey.

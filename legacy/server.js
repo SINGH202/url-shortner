@@ -1,10 +1,12 @@
 // server.js — URL shortener (Node + Express + PostgreSQL)
 
-require("dotenv").config(); // load variables from .env into process.env
+import dotenv from "dotenv";
 
-const crypto = require("crypto");
-const express = require("express");
-const db = require("./db");
+dotenv.config(); // load variables from .env into process.env
+
+import crypto from "node:crypto";
+import express from "express";
+import db from "./db";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
