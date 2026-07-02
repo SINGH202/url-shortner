@@ -2,6 +2,7 @@ node_modules/
 .env
 .env*.local
 .claude/
+.qodo/
 
 # Next.js
 /.next/
