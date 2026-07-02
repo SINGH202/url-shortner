@@ -9,23 +9,69 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+async function resolveAndClick(
+  supabase: SupabaseClient,
+  code: string,
+  referrer: string | null,
+  country: string | null,
+  userAgent: string | null
+): Promise<string | null> {
+  // Phase 3: four-argument function (analytics). Falls back to the legacy
+  // one-argument overload if the database hasn't been migrated yet.
+  const withAnalytics = await supabase.rpc("resolve_and_click", {
+    p_code: code,
+    p_referrer: referrer,
+    p_country: country,
+    p_user_agent: userAgent,
+  });
+
+  if (!withAnalytics.error && withAnalytics.data) {
+    return withAnalytics.data as string;
+  }
+
+  const legacy = await supabase.rpc("resolve_and_click", { p_code: code });
+
+  if (!legacy.error && legacy.data) {
+    return legacy.data as string;
+  }
+
+  console.error(
+    "resolve_and_click failed:",
+    withAnalytics.error ?? legacy.error
+  );
+  return null;
+}
 
 export async function GET(
   request: NextRequest,
   ctx: RouteContext<"/[code]">
 ) {
   const { code } = await ctx.params;
+  // The public redirect stays on the anonymous singleton client — it needs no
+  // user session, and resolve_and_click() is SECURITY DEFINER so it works for
+  // everyone regardless of who owns the link.
   const supabase = getSupabase();
 
-  // Call our database function, which increments the click counter AND returns
-  // the original URL in a single atomic query (see schema.sql).
-  const { data: longUrl, error } = await supabase.rpc("resolve_and_click", {
-    p_code: code,
-  });
+  // Capture analytics (Phase 3) from standard request headers. `referer` is the
+  // page the click came from; `x-vercel-ip-country` is set by Vercel's edge
+  // (Next 16 removed request.geo/ip, so we read the header directly).
+  const referrer = request.headers.get("referer");
+  const country = request.headers.get("x-vercel-ip-country");
+  const userAgent = request.headers.get("user-agent");
+
+  const longUrl = await resolveAndClick(
+    supabase,
+    code,
+    referrer,
+    country,
+    userAgent
+  );
 
   // No matching row → send the visitor back home with a friendly flag, rather
   // than a bare 404. The homepage reads ?notfound and shows a message.
-  if (error || !longUrl) {
+  if (!longUrl) {
     return NextResponse.redirect(new URL("/?notfound=1", request.nextUrl.origin));
   }
 
