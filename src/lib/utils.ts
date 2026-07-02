@@ -35,6 +35,56 @@ export function generateCode(length = 7): string {
   return code;
 }
 
+// Slugs a visitor is NOT allowed to claim, because they'd shadow (or be
+// confused with) real routes in the app — both today's and the ones Phase 2
+// will add. The [code] route only matches paths that aren't already a real
+// route, but blocking these keeps custom links unambiguous.
+const RESERVED_SLUGS = new Set([
+  "api",
+  "_next",
+  "favicon.ico",
+  "robots.txt",
+  "sitemap.xml",
+  // Reserved ahead of Phase 2 (auth + dashboard) so a claimed slug can never
+  // collide with those pages later.
+  "login",
+  "logout",
+  "signup",
+  "auth",
+  "dashboard",
+  "account",
+  "settings",
+]);
+
+/**
+ * Has a link's expiry passed? NULL expiry = never expires = never expired.
+ *
+ * Kept here (a plain module, not a React component) so the current-time read
+ * lives outside render — components can call this without tripping React's
+ * purity rule.
+ */
+export function isExpired(expiresAt: string | null): boolean {
+  if (!expiresAt) return false;
+  return new Date(expiresAt).getTime() <= Date.now();
+}
+
+/**
+ * Validate a user-supplied custom slug.
+ *
+ * Rules:
+ *   • 3–16 characters (fits the `code VARCHAR(16)` column)
+ *   • only URL-safe characters: letters, digits, hyphen, underscore
+ *   • not one of our reserved words (checked case-insensitively)
+ *
+ * We intentionally forbid dots and slashes so a slug can't smuggle in a path
+ * or a file extension.
+ */
+export function isValidSlug(value: string): boolean {
+  if (!/^[A-Za-z0-9_-]{3,16}$/.test(value)) return false;
+  if (RESERVED_SLUGS.has(value.toLowerCase())) return false;
+  return true;
+}
+
 /**
  * Validate that a string is a real http(s) URL before we store it.
  *
