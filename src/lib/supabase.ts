@@ -1,7 +1,7 @@
 // supabase.ts — provides the Supabase client our backend uses to talk to
 // Postgres. This module must ONLY ever be imported from server-side code
 // (route handlers, server components) — never from a "use client" file —
-// because it uses the secret service-role key.
+// because it uses the Supabase API key from env (publishable key on server routes).
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
@@ -28,10 +28,10 @@ export function getSupabase(): SupabaseClient {
     );
   }
 
-  // The service-role client BYPASSES Row Level Security — which is exactly why
-  // it must stay on the server. If this key reached the browser, anyone could
-  // read or wipe the database. We also disable session persistence: there's no
-  // logged-in user, and every serverless invocation is stateless.
+  // The publishable key is subject to RLS — see schema.sql for the policies
+  // that allow insert (shorten) and resolve_and_click (redirect). We disable
+  // session persistence: there's no logged-in user, and every serverless
+  // invocation is stateless.
   client = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false },
   });

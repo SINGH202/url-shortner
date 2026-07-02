@@ -1,5 +1,5 @@
--- schema.sql — defines the shape of our data.
--- Run this once to create the table.
+-- schema.sql — production database setup for Snip URL shortener.
+-- Run once in Supabase SQL Editor (safe to re-run: uses IF NOT EXISTS / OR REPLACE).
 
 CREATE TABLE IF NOT EXISTS urls (
     -- A surrogate primary key. BIGSERIAL = auto-incrementing big integer.
@@ -23,6 +23,24 @@ CREATE TABLE IF NOT EXISTS urls (
 -- (The UNIQUE constraint above already creates one, but being explicit is good learning.)
 CREATE INDEX IF NOT EXISTS idx_urls_code ON urls (code);
 
+-- RLS: the publishable (anon) key can only do what these policies allow.
+ALTER TABLE urls ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "anon can insert urls" ON urls;
+CREATE POLICY "anon can insert urls"
+  ON urls FOR INSERT TO anon
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "anon can update urls" ON urls;
+CREATE POLICY "anon can update urls"
+  ON urls FOR UPDATE TO anon
+  USING (true)
+  WITH CHECK (true);
+
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT INSERT, UPDATE ON urls TO anon;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon;
+
 
 -- resolve_and_click(): the heart of the redirect, done in ONE atomic database call.
 --
@@ -43,3 +61,5 @@ AS $$
      WHERE code = p_code
  RETURNING long_url;
 $$;
+
+GRANT EXECUTE ON FUNCTION resolve_and_click(TEXT) TO anon;

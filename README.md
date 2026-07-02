@@ -1,9 +1,8 @@
-# 🔗 Snip — a URL shortener
+# Snip — URL Shortener
 
-Turn long, ugly links into short, shareable ones. A full-stack URL shortener
-built as a single Next.js app and deployed to Vercel.
+Production-ready URL shortener built with Next.js 16 and Supabase Postgres. Shorten links, redirect instantly, and track clicks — all in one deployable app.
 
-**Live demo:** _add your Vercel URL here after deploying_
+**Live demo:** devshort.vercel.app
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
@@ -12,100 +11,237 @@ built as a single Next.js app and deployed to Vercel.
 
 ---
 
-## ✨ Features
+## Features
 
-- **Shorten any http(s) URL** into a 7-character code (base62, ~3.5 trillion combos).
-- **Instant redirects** from `yoursite.com/<code>` to the original link.
-- **Click tracking** — every visit is counted atomically in the database.
-- **Secure, collision-safe codes** via the Web Crypto API + a `UNIQUE` DB constraint.
-- **Clean UI** with copy-to-clipboard, loading and error states.
-- One codebase, one deploy — frontend and backend together on Vercel.
+- Shorten any `http`/`https` URL into a 7-character base62 code (~3.5 trillion combinations)
+- Instant redirects at `/<code>` with atomic click tracking
+- Collision-safe code generation (Web Crypto API + database `UNIQUE` constraint)
+- Row Level Security (RLS) policies scoped to insert/update only what the app needs
+- Serverless-friendly: lazy Supabase client, no session state, works on Vercel out of the box
+- Clean UI with copy-to-clipboard, loading, and error states
 
-## 🧱 Tech stack & architecture
+## Tech stack
 
-| Layer     | Choice                      | Why                                  |
-| --------- | --------------------------- | ------------------------------------ |
-| Framework | **Next.js 16 (App Router)** | Frontend + backend in one project    |
-| Language  | **TypeScript**              | Type safety across the stack         |
-| Styling   | **Tailwind CSS v4**         | Fast, consistent UI                  |
-| Database  | **Supabase (Postgres)**     | Serverless-friendly managed Postgres |
-| Hosting   | **Vercel**                  | Zero-config Next.js deploys          |
+| Layer     | Choice                      | Role                                      |
+| --------- | --------------------------- | ----------------------------------------- |
+| Framework | Next.js 16 (App Router)     | UI + API route handlers in one codebase   |
+| Language  | TypeScript                  | End-to-end type safety                    |
+| Styling   | Tailwind CSS v4             | UI styling                                |
+| Database  | Supabase (Postgres)         | Persistent storage + atomic click counter |
+| Hosting   | Vercel                      | Production deploys and preview branches   |
+
+## Project structure
 
 ```
 src/
-├─ app/
-│  ├─ page.tsx            # Homepage (Server Component) — the shell
-│  ├─ ShortenForm.tsx     # Client Component — the interactive form
-│  ├─ api/shorten/route.ts# POST: validate → generate code → store
-│  └─ [code]/route.ts     # GET: look up code → count click → redirect
-└─ lib/
-   ├─ supabase.ts         # Lazy, server-only Supabase client
-   └─ utils.ts            # generateCode() + isValidUrl()
-schema.sql                # Table + atomic resolve_and_click() function
-legacy/                   # The original Express prototype (kept for history)
+├── app/
+│   ├── page.tsx              # Homepage (Server Component)
+│   ├── ShortenForm.tsx         # Shorten form (Client Component)
+│   ├── api/shorten/route.ts    # POST /api/shorten
+│   └── [code]/route.ts         # GET /:code → redirect
+└── lib/
+    ├── supabase.ts             # Server-only Supabase client
+    └── utils.ts                # generateCode(), isValidUrl()
+schema.sql                      # Table, RLS policies, resolve_and_click()
+legacy/                         # Original Express prototype (reference only)
 ```
 
-## 🚀 Run it locally
+---
 
-**Prerequisites:** Node 18+ and a free [Supabase](https://supabase.com) account.
+## Prerequisites
 
-1. **Install dependencies**
+- **Node.js 18+**
+- **npm** (or compatible package manager)
+- A [Supabase](https://supabase.com) project (free tier works)
+- A [Vercel](https://vercel.com) account for production deployment
 
-   ```bash
-   npm install
-   ```
+---
 
-2. **Create the database.** In your Supabase project, open **SQL Editor**, paste
-   the contents of [`schema.sql`](./schema.sql), and run it. This creates the
-   `urls` table and the `resolve_and_click()` function.
+## Local development
 
-3. **Add your credentials.** Copy the example env file and fill it in:
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-   Get both values from **Supabase → Project Settings**:
-   - `NEXT_PUBLIC_SUPABASE_URL` — Data API → Project URL
-   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — API Keys → `service_role` (keep secret!)
-
-4. **Start the dev server**
-   ```bash
-   npm run dev
-   ```
-   Open <http://localhost:3000>, paste a long URL, and hit **Shorten**.
-
-## 🧪 Try the API directly
+### 1. Install dependencies
 
 ```bash
-# Shorten a URL
+npm install
+```
+
+### 2. Set up the database
+
+In your Supabase project, open **SQL Editor**, paste the full contents of [`schema.sql`](./schema.sql), and run it.
+
+This creates:
+
+- `urls` table (`code`, `long_url`, `clicks`, `created_at`)
+- RLS policies for the `anon` role (insert + update)
+- `resolve_and_click()` function for atomic redirect + click increment
+
+> **Important:** Run `schema.sql` manually. Serverless apps have no startup hook to auto-migrate the database.
+
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in both values from **Supabase → Project Settings**:
+
+| Variable                             | Where to find it                          |
+| ------------------------------------ | ----------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`           | Data API → Project URL                    |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | API Keys → **Publishable** key (`sb_publishable_…`) |
+
+`.env.local` is gitignored. Never commit real credentials.
+
+### 4. Start the dev server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000), paste a URL, and click **Shorten**.
+
+### 5. Production build (local smoke test)
+
+```bash
+npm run build
+npm run start
+```
+
+Use this before deploying to confirm the production bundle works with your env vars.
+
+---
+
+## API reference
+
+### `POST /api/shorten`
+
+Create a short link.
+
+**Request**
+
+```json
+{ "url": "https://example.com/page" }
+```
+
+**Success — `201 Created`**
+
+```json
+{
+  "code": "aB3xK9q",
+  "shortUrl": "https://your-domain.com/aB3xK9q"
+}
+```
+
+**Errors**
+
+| Status | Body                                              | Cause                        |
+| ------ | ------------------------------------------------- | ---------------------------- |
+| `400`  | `{ "error": "Request body must be valid JSON." }` | Malformed JSON               |
+| `400`  | `{ "error": "Please provide a valid http(s) URL." }` | Invalid or non-http(s) URL |
+| `500`  | `{ "error": "Something went wrong saving your link." }` | Database error           |
+| `500`  | `{ "error": "Could not generate a unique code, please try again." }` | Code collision retries exhausted |
+
+**Example**
+
+```bash
 curl -X POST http://localhost:3000/api/shorten \
   -H "Content-Type: application/json" \
   -d '{"url":"https://developer.mozilla.org"}'
-# → { "code": "aB3xK9q", "shortUrl": "http://localhost:3000/aB3xK9q" }
+```
 
-# Follow the short link (‑L follows the redirect)
+### `GET /:code`
+
+Resolve a short code, increment the click counter, and redirect to the original URL.
+
+| Status  | Behavior                                                |
+| ------- | ------------------------------------------------------- |
+| `302`   | Redirect to the stored `long_url`                       |
+| `302`   | Redirect to `/?notfound=1` if the code does not exist |
+
+**Example**
+
+```bash
 curl -L http://localhost:3000/aB3xK9q
 ```
 
-Watch the click counter rise:
+> Redirects use **302 (temporary)**, not 301. Browsers cache 301 permanently, which would stop click tracking after the first visit.
 
-```sql
-select code, clicks, long_url from urls order by created_at desc;
+---
+
+## Environment variables
+
+| Variable                             | Required | Description                                      |
+| ------------------------------------ | -------- | ------------------------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | Supabase project URL                             |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes    | Supabase publishable key (`sb_publishable_…`)    |
+
+The Supabase client is only imported in server-side route handlers. Database access is governed by RLS policies defined in `schema.sql`.
+
+---
+
+## Security
+
+- **URL validation** — only `http:` and `https:` schemes are accepted (blocks `javascript:` and `data:` open-redirect abuse)
+- **Cryptographic codes** — `crypto.getRandomValues()` instead of `Math.random()`
+- **RLS** — the publishable key can only insert rows and update via `resolve_and_click()`; no blanket read/delete access
+- **No secrets in git** — use `.env.local` locally and Vercel Environment Variables in production
+- **Lazy client init** — missing env vars fail at request time, not at build time
+
+---
+
+## Production deployment
+
+See **[DEPLOY.md](./DEPLOY.md)** for the full Vercel + Supabase deployment guide, post-deploy checks, and troubleshooting.
+
+**Pre-deploy checklist**
+
+- [ ] `schema.sql` executed in Supabase SQL Editor
+- [ ] `urls` table visible in Supabase Table Editor
+- [ ] Both env vars set in Vercel (Production + Preview if using branch deploys)
+- [ ] `npm run build` passes locally
+- [ ] Shorten + redirect tested against production URL
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+| ------- | ------------ | --- |
+| `Could not find the table 'public.urls'` (`PGRST205`) | Table not created | Run [`schema.sql`](./schema.sql) in Supabase SQL Editor |
+| `new row violates row-level security policy` (`42501`) | RLS enabled without policies | Re-run the RLS section of `schema.sql` |
+| Env var error on shorten | Missing or wrong credentials | Check `.env.local` / Vercel env vars match your Supabase project |
+| Changes not reflected after code edit | Stale production build | Run `npm run build && npm run start` (not just `npm run start`) |
+| Env change has no effect on Vercel | Deploy cache | Redeploy after updating environment variables |
+
+**Verify database connectivity**
+
+```bash
+# Should return 200 (empty array is fine)
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+  -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+  "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/urls?select=code&limit=1"
 ```
 
-## ☁️ Deploy
+**Inspect click counts**
 
-See **[DEPLOY.md](./DEPLOY.md)** for step-by-step Vercel + Supabase instructions.
+```sql
+SELECT code, clicks, long_url, created_at
+FROM urls
+ORDER BY created_at DESC;
+```
 
-## 📚 What I learned building this
+---
 
-- The **Server vs. Client Component** boundary in the Next.js App Router.
-- Writing backend **Route Handlers** with the web `Request`/`Response` API.
-- Next.js 16's async `params`/`searchParams` breaking change.
-- Why **302 (not 301)** redirects keep click analytics accurate.
-- Doing an **atomic** read-increment-return in a single SQL function to avoid race conditions.
-- Keeping secrets server-side and initializing clients **lazily** for serverless.
+## Scripts
 
-> Started life as a plain Express + local Postgres app (see `legacy/`) and was
-> rebuilt into this Next.js + Supabase stack — the git history shows the journey.
+| Command         | Description                          |
+| --------------- | ------------------------------------ |
+| `npm run dev`   | Start development server             |
+| `npm run build` | Create production build              |
+| `npm run start` | Serve production build               |
+| `npm run lint`  | Run ESLint                           |
+
+---
+
+
