@@ -86,6 +86,25 @@ export function isValidSlug(value: string): boolean {
 }
 
 /**
+ * Sanitise a caller-supplied "where to go next" value into a SAFE local path.
+ *
+ * Post-login and post-callback redirects take their destination from the URL
+ * (?redirect=… / ?next=…), which is fully attacker-controlled. Passing that
+ * straight to a navigation turns our own auth pages into an open redirect — a
+ * phishing vector (send a victim to /login?redirect=https://evil.com, they sign
+ * in, we bounce them to the attacker). We only accept a value that starts with
+ * a single "/" and NOT "//" (the latter is a protocol-relative URL like
+ * "//evil.com" that browsers treat as absolute). Anything else → the fallback.
+ */
+export function safeInternalPath(
+  target: string | null | undefined,
+  fallback = "/dashboard",
+): string {
+  if (target && /^\/(?!\/)/.test(target)) return target;
+  return fallback;
+}
+
+/**
  * Validate that a string is a real http(s) URL before we store it.
  *
  * We deliberately allow ONLY http and https. Without this check, someone could

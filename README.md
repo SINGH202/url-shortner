@@ -106,7 +106,15 @@ In **Supabase → Authentication → Providers → Email**:
 Add your local redirect URL under **Authentication → URL Configuration**:
 
 - Site URL: `http://localhost:3000`
-- Redirect URLs: `http://localhost:3000/**`
+- Redirect URLs: `http://localhost:3000/**` (covers `/auth/callback`, where
+  password-reset and verification links land)
+
+For password-reset and verification emails to actually send, configure custom
+SMTP under **Authentication → Emails → SMTP Settings** (the built-in mailer is
+rate-limited and testing-only). If using Brevo, set **Username** to your Brevo
+SMTP login and **Sender email** to a **verified sender** — not the
+`…@smtp-brevo.com` login, which Brevo silently drops. See
+[DEPLOY.md](./DEPLOY.md) § 1.3a for the full walkthrough.
 
 ### 4. Configure environment variables
 
@@ -299,6 +307,7 @@ See **[DEPLOY.md](./DEPLOY.md)** for the full Vercel + Supabase deployment guide
 | `new row violates row-level security policy` (`42501`) | RLS enabled without policies | Re-run the RLS section of `schema.sql` |
 | `401` on shorten | Not signed in | Sign in at `/login` first |
 | Sign-up succeeds but can't sign in | Email confirmation required | Disable confirm email in Supabase Auth settings for dev, or verify inbox |
+| Reset/verification email never arrives (Auth log shows `200`, no error) | Sender email is not a verified sender (e.g. set to the SMTP login) | Verify a real sender in your SMTP provider and set it as **Sender email**; see [DEPLOY.md](./DEPLOY.md) § 1.3a |
 | Env var error on shorten | Missing or wrong credentials | Check `.env.local` / Vercel env vars match your Supabase project |
 | Changes not reflected after code edit | Stale production build | Run `npm run build && npm run start` (not just `npm run start`) |
 | Env change has no effect on Vercel | Deploy cache | Redeploy after updating environment variables |

@@ -44,11 +44,14 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Optimistic guard: bounce logged-out visitors away from the dashboard early.
-  // The dashboard page re-checks server-side, so this is purely a nicety.
-  if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
+  // Optimistic guard: bounce logged-out visitors away from the protected areas
+  // early. The pages re-check server-side, so this is purely a nicety.
+  const pathname = request.nextUrl.pathname;
+  const isProtected =
+    pathname.startsWith("/dashboard") || pathname.startsWith("/account");
+  if (!user && isProtected) {
     const redirectUrl = new URL("/login", request.url);
-    redirectUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    redirectUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -59,5 +62,5 @@ export async function proxy(request: NextRequest) {
 // (/[code]) is anonymous and deliberately excluded so it never pays for an auth
 // round-trip.
 export const config = {
-  matcher: ["/", "/login", "/dashboard/:path*"],
+  matcher: ["/", "/login", "/dashboard/:path*", "/account/:path*"],
 };

@@ -14,3 +14,7 @@ next-env.d.ts
 
 # Debug logs
 npm-debug.log*
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
+*.tsbuildinfo
