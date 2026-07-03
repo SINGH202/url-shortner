@@ -59,6 +59,38 @@ The `urls` table should have columns: `id`, `code`, `long_url`, `clicks`, `expir
 3. **Authentication → URL Configuration**:
    - **Site URL:** `https://your-shortener.vercel.app` (update after deploy)
    - **Redirect URLs:** add `https://your-shortener.vercel.app/**` and any custom domain
+   - Password-reset and verification links land on `/auth/callback`, so the
+     redirect URLs above must cover it (the `/**` wildcard does). For local dev,
+     also add `http://localhost:3000/**`.
+
+### 1.3a Configure email delivery (custom SMTP)
+
+Password-reset and email-verification links are sent by Supabase Auth. The
+built-in mailer is rate-limited to a few messages per hour and is for testing
+only — configure your own SMTP (e.g. Brevo, Resend, Postmark) for anything real.
+
+In **Authentication → Emails → SMTP Settings**, enable custom SMTP and fill in
+your provider's values. For **Brevo** (`smtp-relay.brevo.com:587`):
+
+| Field | Value |
+| ----- | ----- |
+| **Host** | `smtp-relay.brevo.com` |
+| **Port** | `587` |
+| **Username** | your Brevo SMTP login, e.g. `xxxxxx@smtp-brevo.com` |
+| **Password** | a Brevo **SMTP key** (Brevo → SMTP & API → SMTP Keys) |
+| **Sender email** | a **verified sender** — see the warning below |
+
+> ⚠️ **The Sender email must be a verified sender in your provider, NOT the SMTP
+> username.** A common mistake is setting the sender to the Brevo login
+> (`…@smtp-brevo.com`). Brevo's SMTP login is not a deliverable From address, so
+> Brevo authenticates the connection, accepts the message, then **silently drops
+> it** — Supabase logs a successful `200` with no error, no email arrives, and
+> transactional usage never increments. Add and verify a real address (or,
+> better, authenticate a domain with SPF/DKIM) under **Brevo → Senders, Domains
+> & Dedicated IPs**, then use that address as the sender.
+
+Treat the SMTP key like a password: store it only in Supabase, never commit it,
+and rotate it if it leaks.
 
 ### 1.4 Collect credentials
 
@@ -222,6 +254,30 @@ new row violates row-level security policy for table "urls"
 ### Sign-up works but sign-in fails
 
 **Fix:** Check whether **Confirm email** is enabled. Users must verify their inbox before a session is created, unless you disable confirmation in Supabase Auth settings.
+
+### Password-reset / verification emails never arrive
+
+Symptoms: clicking "Forgot password?" (or signing up) shows a success message,
+the Auth log records `user_recovery_requested` with status `200` and **no
+error**, yet no email arrives and your SMTP provider shows zero usage.
+
+**Cause:** almost always the **Sender email address** is set to something the
+provider won't send from — most commonly the SMTP *username* rather than a
+**verified sender**. The provider accepts the authenticated connection and then
+drops the message, so Supabase never sees an error.
+
+**Fix:**
+
+1. In your provider (e.g. **Brevo → Senders, Domains & Dedicated IPs**), add and
+   **verify** the sender address, or authenticate a domain with SPF/DKIM.
+2. In **Authentication → Emails → SMTP Settings**, set **Sender email** to that
+   verified address. Leave **Username** as the provider's SMTP login.
+3. Confirm custom SMTP is actually enabled and saved (Supabase blanks the
+   password field on reload — re-enter it and save).
+4. Wait for the **Minimum interval per user** window, then retry.
+
+If a real user still gets nothing, check the spam folder and your provider's
+transactional log for a block/bounce reason.
 
 ### `500` on shorten after deploy
 
