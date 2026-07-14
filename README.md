@@ -2,7 +2,7 @@
 
 Production-ready URL shortener built with Next.js 16 and Supabase. Sign in, shorten links with optional custom slugs and expirations, redirect instantly, and track clicks with per-link analytics — all in one deployable app.
 
-**Live demo:** devshort.vercel.app
+**Live demo:** [https://myshrinkly.vercel.app](https://myshrinkly.vercel.app)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
@@ -13,7 +13,8 @@ Production-ready URL shortener built with Next.js 16 and Supabase. Sign in, shor
 
 ## Features
 
-- **Authenticated shortening** — sign up / sign in with Supabase Auth; only signed-in users can create links
+- **Authenticated shortening** — email/password sign-up and sign-in via Supabase Auth; only signed-in users can create links
+- **Password reset** — forgot-password email → `/auth/callback` (PKCE) → `/account/update-password`
 - Shorten any `http`/`https` URL into a random 7-character base62 code (~3.5 trillion combinations)
 - **Custom slugs** — pick your own 3–16 character path (letters, numbers, `-`, `_`)
 - **Link expiration** — optional 1, 7, or 30 day expiry; expired links redirect to `/?notfound=1`
@@ -22,8 +23,9 @@ Production-ready URL shortener built with Next.js 16 and Supabase. Sign in, shor
 - **Dashboard** — list, copy, edit destination URLs, and delete your links
 - **Analytics** — per-link click charts (14-day trend, referrer and country breakdowns)
 - Collision-safe code generation (Web Crypto API + database `UNIQUE` constraint)
-- **Rate limiting** — Postgres-backed IP throttle on shorten (10 requests / 60 seconds)
+- **Rate limiting** — Postgres-backed IP throttle on shorten (10 requests / 60 seconds; bypassed when `NEXT_PUBLIC_IS_DEV=true`)
 - Per-user Row Level Security (RLS) — users can only read and manage their own links
+- **Social previews** — Open Graph + Twitter card metadata (`public/og.png`) for rich link previews when sharing the app
 - Serverless-friendly: lazy Supabase clients, SSR session refresh via `proxy.ts`, works on Vercel out of the box
 
 ## Tech stack
@@ -41,25 +43,31 @@ Production-ready URL shortener built with Next.js 16 and Supabase. Sign in, shor
 
 ```
 src/
-├── proxy.ts                      # Session refresh + optimistic /dashboard guard
+├── proxy.ts                                 # Session refresh + optimistic /dashboard guard
 ├── app/
-│   ├── page.tsx                  # Homepage (sign-in CTA or shorten form)
-│   ├── ShortenForm.tsx           # Shorten form with slug, expiry, QR (client)
-│   ├── Header.tsx                # Nav bar with auth state
-│   ├── login/                    # Email/password sign-in and sign-up
-│   ├── dashboard/                # Link list + per-link analytics
-│   ├── auth/signout/             # POST sign-out route
+│   ├── page.tsx                             # Homepage (sign-in CTA or shorten form)
+│   ├── ShortenForm.tsx                      # Shorten form with slug, expiry, QR (client)
+│   ├── Header.tsx                           # Nav bar with auth state
+│   ├── layout.tsx                           # Root layout + Open Graph / Twitter metadata
+│   ├── login/                               # Email/password sign-in, sign-up, forgot password
+│   ├── account/update-password/             # Set a new password after reset
+│   ├── dashboard/                           # Link list + per-link analytics
+│   ├── auth/
+│   │   ├── callback/route.ts                # PKCE code exchange for reset / email links
+│   │   └── signout/route.ts                 # POST sign-out
 │   ├── api/
-│   │   ├── shorten/route.ts      # POST /api/shorten
-│   │   └── links/[id]/route.ts   # PATCH / DELETE owned links
-│   └── [code]/route.ts           # GET /:code → redirect + analytics
+│   │   ├── shorten/route.ts                 # POST /api/shorten
+│   │   └── links/[id]/route.ts              # PATCH / DELETE owned links
+│   └── [code]/route.ts                      # GET /:code → redirect + analytics
 └── lib/
-    ├── supabase.ts               # Anonymous singleton (redirects only)
-    ├── supabase/server.ts        # SSR client (cookies, auth)
-    ├── supabase/client.ts        # Browser client (login form)
-    ├── env.ts                    # isDev() flag for local rate-limit bypass
-    └── utils.ts                  # generateCode(), isValidUrl(), isValidSlug()
-schema.sql                        # Tables, RLS, resolve_and_click(), rate limiting
+    ├── supabase.ts                          # Anonymous singleton (redirects only)
+    ├── supabase/server.ts                   # SSR client (cookies, auth)
+    ├── supabase/client.ts                   # Browser client (login form)
+    ├── env.ts                               # isDev() flag for local rate-limit bypass
+    └── utils.ts                             # generateCode(), isValidUrl(), isValidSlug()
+public/
+└── og.png                                   # Open Graph / Twitter social preview image
+schema.sql                                   # Tables, RLS, resolve_and_click(), rate limiting
 ```
 
 ---
@@ -124,10 +132,10 @@ cp .env.example .env.local
 
 Fill in both values from **Supabase → Project Settings**:
 
-| Variable                             | Where to find it                          |
-| ------------------------------------ | ----------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`           | Data API → Project URL                    |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | API Keys → **Publishable** key (`sb_publishable_…`) |
+| Variable                               | Where to find it                                      |
+| -------------------------------------- | ----------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Data API → Project URL                                |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | API Keys → **Publishable** key (`sb_publishable_…`)   |
 
 Optional for local development:
 
@@ -153,6 +161,24 @@ npm run start
 ```
 
 Use this before deploying to confirm the production bundle works with your env vars.
+
+---
+
+## App routes
+
+| Path | Auth | Purpose |
+| ---- | ---- | ------- |
+| `/` | Optional | Homepage — sign-in CTA when logged out; shorten form when logged in |
+| `/login` | Public | Sign in / sign up / forgot password |
+| `/auth/callback` | Public | Exchange PKCE `code` for a session (password-reset emails) |
+| `/auth/signout` | Session | Clear auth cookies and return home |
+| `/account/update-password` | Required | Set a new password after reset (or while signed in) |
+| `/dashboard` | Required | List, copy, edit, and delete your links |
+| `/dashboard/[id]` | Required | Per-link analytics charts |
+| `/[code]` | Public | Resolve short code → 302 redirect + click analytics |
+| `POST /api/shorten` | Required | Create a short link |
+| `PATCH /api/links/[id]` | Required | Update destination URL |
+| `DELETE /api/links/[id]` | Required | Delete a link |
 
 ---
 
@@ -220,23 +246,23 @@ Update a link's destination URL. **Requires authentication.** RLS ensures only t
 **Request**
 
 ```json
-{ "url": "https://example.com/new-destination" }
+{ "longUrl": "https://example.com/new-destination" }
 ```
 
 | Status | Description                    |
 | ------ | ------------------------------ |
-| `200`  | Updated successfully           |
+| `200`  | Updated successfully — `{ link }` |
 | `400`  | Invalid URL or link id         |
 | `401`  | Not authenticated              |
 | `404`  | Link not found or not owned    |
 
 ### `DELETE /api/links/:id`
 
-Permanently delete a link. **Requires authentication.**
+Permanently delete a link (and its `click_events` via cascade). **Requires authentication.**
 
 | Status | Description                    |
 | ------ | ------------------------------ |
-| `204`  | Deleted successfully           |
+| `200`  | Deleted successfully — `{ "ok": true }` |
 | `401`  | Not authenticated              |
 | `404`  | Link not found or not owned    |
 
@@ -261,11 +287,11 @@ curl -L http://localhost:3000/aB3xK9q
 
 ## Environment variables
 
-| Variable                             | Required | Description                                      |
-| ------------------------------------ | -------- | ------------------------------------------------ |
-| `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | Supabase project URL                             |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes    | Supabase publishable key (`sb_publishable_…`)    |
-| `NEXT_PUBLIC_IS_DEV`                 | No       | Set to `true` locally to disable rate limiting   |
+| Variable                               | Required | Description                                      |
+| -------------------------------------- | -------- | ------------------------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Yes      | Supabase project URL                             |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes      | Supabase publishable key (`sb_publishable_…`)    |
+| `NEXT_PUBLIC_IS_DEV`                   | No       | Set to `true` locally to disable rate limiting   |
 
 The publishable key is used in both server and browser clients. Database access is governed by RLS policies defined in `schema.sql`. Redirects use a separate anonymous server client that calls the `SECURITY DEFINER` `resolve_and_click()` function.
 
@@ -276,6 +302,7 @@ The publishable key is used in both server and browser clients. Database access 
 - **Authentication required to shorten** — enforced in the API handler and by RLS insert policy
 - **Per-user RLS** — signed-in users can only select, update, and delete their own links
 - **Anonymous redirects** — public `GET /:code` uses `resolve_and_click()` (SECURITY DEFINER), not direct table access
+- **Auth callback hardening** — `next` redirect targets are sanitized to local paths via `safeInternalPath()`
 - **URL validation** — only `http:` and `https:` schemes are accepted (blocks `javascript:` and `data:` open-redirect abuse)
 - **Cryptographic codes** — `crypto.getRandomValues()` instead of `Math.random()`
 - **Rate limiting** — Postgres-backed sliding window on shorten requests (bypassed when `NEXT_PUBLIC_IS_DEV=true`)
@@ -284,18 +311,36 @@ The publishable key is used in both server and browser clients. Database access 
 
 ---
 
+## Social link preview (Open Graph)
+
+Sharing the site on Slack, LinkedIn, X/Twitter, iMessage, etc. uses metadata from `src/app/layout.tsx` and the image at [`public/og.png`](./public/og.png).
+
+| Field | Value |
+| ----- | ----- |
+| Title | Snip — shorten links, track every click |
+| Description | Create short, shareable links with custom slugs, expiration, QR codes, and per-link analytics. … |
+| Image | `/og.png` (1200×630) |
+| Twitter card | `summary_large_image` |
+| `metadataBase` | `https://myshrinkly.vercel.app` |
+
+After changing the OG image or title, redeploy and re-check with a preview debugger (e.g. [opengraph.xyz](https://www.opengraph.xyz/) or the [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/)).
+
+---
+
 ## Production deployment
 
-See **[DEPLOY.md](./DEPLOY.md)** for the full Vercel + Supabase deployment guide, auth configuration, post-deploy checks, and troubleshooting.
+See **[DEPLOY.md](./DEPLOY.md)** for the full Vercel + Supabase deployment guide, auth configuration, SMTP setup, post-deploy checks, and troubleshooting.
 
 **Pre-deploy checklist**
 
 - [ ] `schema.sql` executed in Supabase SQL Editor
 - [ ] `urls`, `click_events`, and `rate_limits` tables visible in Supabase Table Editor
-- [ ] Supabase Auth email provider enabled; redirect URLs configured for your domain
+- [ ] Supabase Auth email provider enabled; redirect URLs configured for your domain (`/**` covers `/auth/callback`)
+- [ ] Custom SMTP configured if you need password-reset / verification emails
 - [ ] Both env vars set in Vercel (Production + Preview if using branch deploys)
+- [ ] `NEXT_PUBLIC_IS_DEV` **not** set in production
 - [ ] `npm run build` passes locally
-- [ ] Sign-in, shorten, redirect, and dashboard tested against production URL
+- [ ] Sign-in, password reset, shorten, redirect, dashboard, and analytics tested against production URL
 
 ---
 
@@ -307,11 +352,14 @@ See **[DEPLOY.md](./DEPLOY.md)** for the full Vercel + Supabase deployment guide
 | `new row violates row-level security policy` (`42501`) | RLS enabled without policies | Re-run the RLS section of `schema.sql` |
 | `401` on shorten | Not signed in | Sign in at `/login` first |
 | Sign-up succeeds but can't sign in | Email confirmation required | Disable confirm email in Supabase Auth settings for dev, or verify inbox |
+| `over_email_send_rate_limit` on sign-up | Built-in Auth mailer limit | Disable confirm email for local testing, or configure custom SMTP |
 | Reset/verification email never arrives (Auth log shows `200`, no error) | Sender email is not a verified sender (e.g. set to the SMTP login) | Verify a real sender in your SMTP provider and set it as **Sender email**; see [DEPLOY.md](./DEPLOY.md) § 1.3a |
+| Reset link opens login with an error | Expired or used one-time code | Request a new reset from **Forgot password?** |
 | Env var error on shorten | Missing or wrong credentials | Check `.env.local` / Vercel env vars match your Supabase project |
 | Changes not reflected after code edit | Stale production build | Run `npm run build && npm run start` (not just `npm run start`) |
 | Env change has no effect on Vercel | Deploy cache | Redeploy after updating environment variables |
 | Analytics page empty | `click_events` not migrated | Re-run `schema.sql`; visit a short link to generate events |
+| Social preview shows old image/title | Cached by the platform | Redeploy, then force-refresh with a sharing debugger |
 
 **Verify database connectivity**
 
