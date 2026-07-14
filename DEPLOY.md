@@ -149,11 +149,14 @@ After deploy, update Supabase **Site URL** and **Redirect URLs** to match your V
 1. Open your Vercel URL
 2. Click **Sign in** and create an account (or sign in)
 3. Paste a long `https://` URL and click **Shorten**
-4. Copy the short link and open it in a new tab — you should land on the original URL
-5. Open **Dashboard** — confirm the link appears with click count
-6. Click the link's analytics view — confirm charts populate after a few clicks
-7. In Supabase **Table Editor → urls**, confirm the row exists with your `user_id` and `clicks` incremented
-8. In **Table Editor → click_events**, confirm event rows were created
+4. Optionally set a custom slug and expiry; confirm the QR code renders and downloads
+5. Copy the short link and open it in a new tab — you should land on the original URL
+6. Open **Dashboard** — confirm the link appears with click count; try **Edit URL** and **Delete** on a test link
+7. Click the link's **Analytics** view — confirm charts populate after a few clicks
+8. (Optional) From `/login`, use **Forgot password?** and confirm the reset email arrives, lands on `/auth/callback`, then `/account/update-password`
+9. In Supabase **Table Editor → urls**, confirm the row exists with your `user_id` and `clicks` incremented
+10. In **Table Editor → click_events**, confirm event rows were created
+11. Share the homepage URL in Slack/LinkedIn/X — confirm the Open Graph title, description, and image preview appear
 
 ### API smoke test
 
@@ -193,7 +196,24 @@ Expected: `200`
 3. Update Supabase **Site URL** and **Redirect URLs** to include the new domain
 4. No code changes required — `shortUrl` is built from the request origin at runtime
 
-After adding a domain, re-test sign-in, shorten, redirect, and dashboard on the new hostname.
+After adding a domain, re-test sign-in, password reset, shorten, redirect, and dashboard on the new hostname. If you change the production domain, also update `metadataBase` in `src/app/layout.tsx` so Open Graph / Twitter preview URLs stay absolute and correct.
+
+---
+
+## Open Graph / social preview
+
+The app ships with share metadata in `src/app/layout.tsx` and an image at `public/og.png`:
+
+| Field | Current value |
+| ----- | ------------- |
+| Title | Snip — shorten links, track every click |
+| Description | Create short, shareable links with custom slugs, expiration, QR codes, and per-link analytics. … |
+| Image | `https://<your-domain>/og.png` |
+| Twitter card | `summary_large_image` |
+
+`metadataBase` is set to `https://myshrinkly.vercel.app`. Point it at your final domain if that differs.
+
+After deploy, verify the preview with a sharing debugger (platforms often cache aggressively).
 
 ---
 
@@ -319,6 +339,9 @@ Preview branches need the same env vars scoped to **Preview** in Vercel. A previ
 ## Post-deploy
 
 - [ ] Add your live URL to the **Live demo** line in [`README.md`](./README.md)
-- [ ] Update Supabase Auth redirect URLs for your production domain
+- [ ] If the production domain is not `myshrinkly.vercel.app`, update `metadataBase` in `src/app/layout.tsx` so Open Graph URLs resolve correctly
+- [ ] Update Supabase Auth redirect URLs for your production domain (`/**` must cover `/auth/callback`)
+- [ ] Configure custom SMTP if password reset / email confirmation should work in production
 - [ ] Run the UI and API smoke tests above against production
 - [ ] Confirm click counts and `click_events` rows increment after visiting a short link
+- [ ] Validate social preview with a sharing debugger after deploy
