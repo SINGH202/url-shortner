@@ -14,9 +14,11 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = "https://myshrinkly.vercel.app";
-const siteTitle = "Snip — shorten links, track every click";
+
+// Open Graph guidance: title ≈40–60 chars; description ≈110–160 chars.
+const siteTitle = "Snip — Short links with click analytics";
 const siteDescription =
-  "Create short, shareable links with custom slugs, expiration, QR codes, and per-link analytics. Sign in, manage your links, and redirect instantly — built with Next.js and Supabase.";
+  "Create short URLs with custom slugs, QR codes, and click analytics. Sign in to manage links and track every redirect.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -49,6 +51,7 @@ export const metadata: Metadata = {
         width: 1200,
         height: 630,
         alt: "Snip — turn long links into short, shareable ones",
+        type: "image/png",
       },
     ],
   },
@@ -56,7 +59,12 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
-    images: ["/og.png"],
+    images: [
+      {
+        url: "/og.png",
+        alt: "Snip — turn long links into short, shareable ones",
+      },
+    ],
   },
   robots: {
     index: true,

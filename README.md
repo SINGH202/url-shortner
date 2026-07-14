@@ -317,13 +317,13 @@ Sharing the site on Slack, LinkedIn, X/Twitter, iMessage, etc. uses metadata fro
 
 | Field | Value |
 | ----- | ----- |
-| Title | Snip — shorten links, track every click |
-| Description | Create short, shareable links with custom slugs, expiration, QR codes, and per-link analytics. … |
+| Title | Snip — Short links with click analytics (~40 chars) |
+| Description | Create short URLs with custom slugs, QR codes, and click analytics. Sign in to manage links and track every redirect. (~120 chars) |
 | Image | `/og.png` (1200×630) |
 | Twitter card | `summary_large_image` |
 | `metadataBase` | `https://myshrinkly.vercel.app` |
 
-After changing the OG image or title, redeploy and re-check with a preview debugger (e.g. [opengraph.xyz](https://www.opengraph.xyz/) or the [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/)).
+Guidelines used: title under ~60 characters (avoids truncation to “Snip — short…”), description under ~160 characters, and a 1.91:1 image sized for Facebook/LinkedIn/X large cards.
 
 ---
 

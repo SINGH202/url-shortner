@@ -206,14 +206,14 @@ The app ships with share metadata in `src/app/layout.tsx` and an image at `publi
 
 | Field | Current value |
 | ----- | ------------- |
-| Title | Snip — shorten links, track every click |
-| Description | Create short, shareable links with custom slugs, expiration, QR codes, and per-link analytics. … |
-| Image | `https://<your-domain>/og.png` |
+| Title | Snip — Short links with click analytics |
+| Description | Create short URLs with custom slugs, QR codes, and click analytics. Sign in to manage links and track every redirect. |
+| Image | `https://myshrinkly.vercel.app/og.png` (1200×630) |
 | Twitter card | `summary_large_image` |
 
 `metadataBase` is set to `https://myshrinkly.vercel.app`. Point it at your final domain if that differs.
 
-After deploy, verify the preview with a sharing debugger (platforms often cache aggressively).
+After deploy, verify the preview with a sharing debugger (platforms often cache aggressively). Force a scrape refresh after changing `og.png` or the title/description.
 
 ---
 
